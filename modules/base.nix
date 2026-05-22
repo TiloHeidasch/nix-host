@@ -22,7 +22,7 @@
   nix.settings.experimental-features = [ "nix-command" "flakes" ];
   nix.gc.automatic = true;
   nix.gc.dates = "weekly";
-  nix.gc.maxLive = 5;
+  nix.gc.options = [ "--max-live" "5" ];
 
   # Timezone and Locale
   time.timeZone = "Europe/Berlin";
