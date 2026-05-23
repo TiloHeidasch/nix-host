@@ -1,10 +1,13 @@
-{ config, pkgs, ... }:
+{ config, pkgs, agenixPkgs, ... }:
 
 {
   imports = [
     ./hardware-configuration.nix
     ./modules/base.nix
   ];
+
+  # agenix CLI
+  environment.systemPackages = [ agenixPkgs.default ];
 
   # agenix configuration
   age.ageBin = "${pkgs.age}/bin/age";

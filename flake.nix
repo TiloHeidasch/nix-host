@@ -9,6 +9,7 @@
   outputs = { self, nixpkgs, agenix }: {
     nixosConfigurations.nix-host = nixpkgs.lib.nixosSystem {
       system = "x86_64-linux";
+      specialArgs = { agenixPkgs = agenix.packages.x86_64-linux; };
       modules = [
         ./configuration.nix
         agenix.nixosModules.default
