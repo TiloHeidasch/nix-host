@@ -14,7 +14,7 @@
   services.openssh.permitRootLogin = "no";
   services.openssh.passwordAuthentication = false;
   users.users.tilo.openssh.authorizedKeys.keys = [
-    "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIB87Pygbk2zeC/PXLyXSvdImJIpLZJOtqEveO+n+23Zr"
+    "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIFR/nYIXmQFyYysElpHtcL8xwKqADI7++5+77e3b1iJw"
   ];
 
   # Nix settings
