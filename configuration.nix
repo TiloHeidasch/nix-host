@@ -6,11 +6,6 @@
     ./modules/base.nix
   ];
 
-  # agenix CLI
-  environment.systemPackages = [
-    (pkgs.callPackage "${pkgs.agenix}/pkgs/agenix.nix" {})
-  ];
-
   # agenix configuration
   age.ageBin = "${pkgs.age}/bin/age";
   age.identityPaths = [
