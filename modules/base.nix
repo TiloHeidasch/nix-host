@@ -13,7 +13,6 @@
   services.openssh.enable = true;
   services.openssh.permitRootLogin = "no";
   services.openssh.passwordAuthentication = false;
-  services.openssh.authorizedKeysFiles = [ ".ssh/authorized_keys" ];
   users.users.tilo.openssh.authorizedKeys.keys = [
     "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIB87Pygbk2zeC/PXLyXSvdImJIpLZJOtqEveO+n+23Zr"
   ];
