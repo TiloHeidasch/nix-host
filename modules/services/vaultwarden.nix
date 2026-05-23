@@ -1,9 +1,18 @@
 { config, pkgs, ... }:
 
 let
-  # Import the Arion project for this service
+  # Resolve secret paths in NixOS context (where agenix is available)
+  cloudflaredEnvFile = config.age.secrets.cloudflared-vaultwarden.env.path;
+  vaultwardenEnvFile = config.age.secrets.vaultwarden.env.path;
+
+  # Build the Arion project, passing secret paths via _module.args
   arionProject = pkgs.arion.build {
-    modules = [ ./../../arion/vaultwarden/arion-compose.nix ];
+    modules = [
+      ({ ... }: {
+        _module.args = { inherit cloudflaredEnvFile vaultwardenEnvFile; };
+      })
+      ./../../arion/vaultwarden/arion-compose.nix
+    ];
     pkgs = import ./../../arion/vaultwarden/arion-pkgs.nix { inherit pkgs; };
   };
 in
