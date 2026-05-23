@@ -4,8 +4,6 @@
   imports = [
     ./hardware-configuration.nix
     ./modules/base.nix
-    ./modules/arion.nix
-    ./modules/services/vaultwarden.nix
   ];
 
   # agenix CLI
@@ -28,8 +26,5 @@
 
   system.stateVersion = "25.11";
 
-  # Hostname
   networking.hostName = "nix-host";
-
-  # Use the unstable channel for nixos-25.11 (already set in flake)
 }
