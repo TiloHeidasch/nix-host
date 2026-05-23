@@ -2,6 +2,7 @@
 
 {
   imports = [
+    /etc/nixos/hardware-configuration.nix
     ./modules/base.nix
     ./modules/arion.nix
     ./modules/services/vaultwarden.nix
@@ -24,6 +25,8 @@
   systemd.tmpfiles.rules = [
     "d /run/agenix 0755 root root"
   ];
+
+  system.stateVersion = "25.11";
 
   # Hostname
   networking.hostName = "nix-host";
