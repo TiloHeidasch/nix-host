@@ -11,7 +11,6 @@
       service.restart = "unless-stopped";
       service.command = [ "tunnel" "run" ];
       service.env_file = [ "${config.age.secrets.cloudflared-vaultwarden.env.path}" ];
-      service.deploy.resources.limits.cpus = "2";
     };
 
     # ---------------------------------------------------------
@@ -22,7 +21,6 @@
       service.restart = "unless-stopped";
       service.volumes = [ "/data/vaultwarden:/data" ];
       service.env_file = [ "${config.age.secrets.vaultwarden.env.path}" ];
-      service.deploy.resources.limits.cpus = "2";
       service.healthcheck = {
         service.healthcheck.test = [ "CMD" "curl" "-f" "http://localhost:80/alive" ];
         service.healthcheck.interval = "30s";
