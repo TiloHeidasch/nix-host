@@ -2,8 +2,8 @@
 
 let
   # Resolve secret paths in NixOS context (where agenix is available)
-  cloudflaredEnvFile = config.age.secrets.cloudflared-vaultwarden.env.path;
-  vaultwardenEnvFile = config.age.secrets.vaultwarden.env.path;
+  cloudflaredEnvFile = config.age.secrets.cloudflared-vaultwarden.path;
+  vaultwardenEnvFile = config.age.secrets.vaultwarden.path;
 
   # Build the Arion project, passing secret paths via _module.args
   arionProject = pkgs.arion.build {
@@ -40,4 +40,17 @@ in
 
   # Enable the service
   systemd.services.arion-vaultwarden.enable = true;
+
+  age.secrets = {
+    vaultwarden = {
+      file = ../../secrets/vaultwarden.env.age;
+      owner = "root";
+      group = "root";
+    };
+    cloudflared-vaultwarden = {
+      file = ../../secrets/cloudflared-vaultwarden.env.age;
+      owner = "root";
+      group = "root";
+    };
+  };
 }
