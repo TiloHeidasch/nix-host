@@ -2,7 +2,7 @@
 
 {
   imports = [
-    /etc/nixos/hardware-configuration.nix
+    ./hardware-configuration.nix
     ./modules/base.nix
     ./modules/arion.nix
     ./modules/services/vaultwarden.nix
