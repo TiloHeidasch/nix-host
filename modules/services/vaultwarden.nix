@@ -18,6 +18,7 @@ in
     description = "Cloudflared service managed by Arion";
     after = [ "virtualisation.docker.service" ];
     wants = [ "virtualisation.docker.service" ];
+    path = [ pkgs.docker ];
     serviceConfig = {
       Type = "oneshot";
       RemainAfterExit = true;
