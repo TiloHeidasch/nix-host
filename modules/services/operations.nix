@@ -1,8 +1,15 @@
-{ pkgs, ... }:
+{ config, pkgs, ... }:
 
 let
+  portainerAdminPasswordFile = config.age.secrets.portainer-admin-password.path;
+
   arionProject = pkgs.arion.build {
-    modules = [ ./../../arion/operations/arion-compose.nix ];
+    modules = [
+      ({ ... }: {
+        _module.args = { inherit portainerAdminPasswordFile; };
+      })
+      ./../../arion/operations/arion-compose.nix
+    ];
     pkgs = import ./../../arion/operations/arion-pkgs.nix { inherit pkgs; };
   };
 in
@@ -22,5 +29,11 @@ in
       ExecStop = "${pkgs.arion}/bin/arion --prebuilt-file ${arionProject} down";
       WorkingDirectory = "/tmp";
     };
+  };
+
+  age.secrets.portainer-admin-password = {
+    file = ../../secrets/portainer-admin-password.age;
+    owner = "root";
+    group = "root";
   };
 }

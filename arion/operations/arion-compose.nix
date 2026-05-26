@@ -1,4 +1,4 @@
-{ pkgs, ... }:
+{ pkgs, portainerAdminPasswordFile, ... }:
 {
   project.name = "operations";
 
@@ -11,6 +11,7 @@
         "/var/lib/portainer:/data"
       ];
       service.ports = [ "9000:9000" ];
+      service.env_file = [ portainerAdminPasswordFile ];
     };
 
     dozzle = {
