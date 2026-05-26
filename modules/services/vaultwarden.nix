@@ -1,15 +1,12 @@
 { config, pkgs, ... }:
 
 let
-  # Resolve secret paths in NixOS context (where agenix is available)
   cloudflaredEnvFile = config.age.secrets.cloudflared-vaultwarden.path;
-  vaultwardenEnvFile = config.age.secrets.vaultwarden.path;
 
-  # Build the Arion project, passing secret paths via _module.args
   arionProject = pkgs.arion.build {
     modules = [
       ({ ... }: {
-        _module.args = { inherit cloudflaredEnvFile vaultwardenEnvFile; };
+        _module.args = { inherit cloudflaredEnvFile; };
       })
       ./../../arion/vaultwarden/arion-compose.nix
     ];
@@ -17,16 +14,8 @@ let
   };
 in
 {
-  # Ensure the data directory for vaultwarden exists
-  fileSystems."/data/vaultwarden" = {
-    device = "";  # We'll bind mount from the base /data/vaultwarden
-    fsType = "none";
-    options = [ "bind" "/data/vaultwarden" ];
-  };
-
-  # Systemd service to manage the Arion project
   systemd.services.arion-vaultwarden = {
-    description = "Vaultwarden service managed by Arion";
+    description = "Cloudflared service managed by Arion";
     after = [ "virtualisation.docker.service" ];
     wants = [ "virtualisation.docker.service" ];
     serviceConfig = {
@@ -34,23 +23,15 @@ in
       RemainAfterExit = true;
       ExecStart = "${pkgs.arion}/bin/arion --prebuilt-file ${arionProject} up -d";
       ExecStop = "${pkgs.arion}/bin/arion --prebuilt-file ${arionProject} down";
-      WorkingDirectory = "/tmp";  # Working directory doesn't matter much for arion with --prebuilt-file
+      WorkingDirectory = "/tmp";
     };
   };
 
-  # Enable the service
   systemd.services.arion-vaultwarden.enable = true;
 
-  age.secrets = {
-    vaultwarden = {
-      file = ../../secrets/vaultwarden.env.age;
-      owner = "root";
-      group = "root";
-    };
-    cloudflared-vaultwarden = {
-      file = ../../secrets/cloudflared-vaultwarden.env.age;
-      owner = "root";
-      group = "root";
-    };
+  age.secrets.cloudflared-vaultwarden = {
+    file = ../../secrets/cloudflared-vaultwarden.env.age;
+    owner = "root";
+    group = "root";
   };
 }
