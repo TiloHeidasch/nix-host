@@ -8,7 +8,7 @@
       service.restart = "unless-stopped";
       service.volumes = [
         "/var/run/docker.sock:/var/run/docker.sock"
-        "portainer_data:/data"
+        "/var/lib/portainer:/data"
       ];
       service.ports = [ "127.0.0.1:9000:9000" ];
     };
@@ -20,6 +20,4 @@
       service.ports = [ "127.0.0.1:8080:8080" ];
     };
   };
-
-  volumes.portainer_data = {};
 }
