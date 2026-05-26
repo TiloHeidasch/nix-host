@@ -19,11 +19,6 @@
   ];
   age.secretsDir = "/run/agenix";
 
-  # Ensure the secrets directory exists
-  systemd.tmpfiles.rules = [
-    "d /run/agenix 0755 root root"
-  ];
-
   system.stateVersion = "25.11";
 
   networking.hostName = "nix-host";
