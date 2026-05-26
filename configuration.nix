@@ -6,6 +6,7 @@
     ./modules/base.nix
     ./modules/arion.nix
     ./modules/services/vaultwarden.nix
+    ./modules/services/operations.nix
   ];
 
   # agenix CLI
