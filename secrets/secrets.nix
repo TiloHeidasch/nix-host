@@ -7,4 +7,5 @@ in
 {
   "vaultwarden.env.age".publicKeys = users ++ systems;
   "cloudflared-vaultwarden.env.age".publicKeys = users ++ systems;
+  "portainer-admin-password.age".publicKeys = users ++ systems;
 }
