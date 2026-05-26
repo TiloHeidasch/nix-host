@@ -18,6 +18,8 @@ in
     description = "Cloudflared service managed by Arion";
     after = [ "virtualisation.docker.service" ];
     wants = [ "virtualisation.docker.service" ];
+    wantedBy = [ "multi-user.target" ];
+    enable = true;
     path = [ pkgs.docker ];
     serviceConfig = {
       Type = "oneshot";
@@ -27,8 +29,6 @@ in
       WorkingDirectory = "/tmp";
     };
   };
-
-  systemd.services.arion-vaultwarden.enable = true;
 
   age.secrets.cloudflared-vaultwarden = {
     file = ../../secrets/cloudflared-vaultwarden.env.age;
