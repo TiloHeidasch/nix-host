@@ -7,6 +7,7 @@ let
   };
 in
 {
+  networking.firewall.allowedTCPPorts = [ 9000 8080 ];
   systemd.services.arion-operations = {
     description = "Operations stack (Portainer, Dozzle) managed by Arion";
     after = [ "virtualisation.docker.service" ];
