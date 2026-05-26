@@ -1,8 +1,8 @@
 let
   tilo = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIFR/nYIXmQFyYysElpHtcL8xwKqADI7++5+77e3b1iJw";
-  nixos = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAINoPvamLrlg1J4N0KZIKP8tkDYzg4ldi5u37TzYPS4MK";
+  nixos-host = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIEtrYNR4QhXIRXcST67pnRyaQ133yM0+U+xgu3ZiCWts";
   users = [ tilo ];
-  systems = [ nixos ];
+  systems = [ nixos-host ];
 in
 {
   "vaultwarden.env.age".publicKeys = users ++ systems;
