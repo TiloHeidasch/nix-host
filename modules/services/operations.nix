@@ -17,12 +17,10 @@ let
   runScript = pkgs.writeShellScript "arion-operations-run" ''
     set -euo pipefail
 
-    # Remove old containers and volumes to guarantee fresh state
+    # Remove old containers and ensure clean state
     ${pkgs.docker}/bin/docker rm -f operations-portainer-1 operations-dozzle-1 2>/dev/null || true
-    ${pkgs.docker}/bin/docker volume rm operations_portainer_data 2>/dev/null || true
-
-    # Create the volume so portainer can persist admin setup
-    ${pkgs.docker}/bin/docker volume create operations_portainer_data > /dev/null
+    rm -rf /var/lib/portainer
+    mkdir -p /var/lib/portainer
 
     # Start containers via arion
     ${pkgs.arion}/bin/arion --prebuilt-file ${arionProject} up -d

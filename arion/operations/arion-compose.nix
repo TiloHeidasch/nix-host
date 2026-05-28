@@ -8,7 +8,7 @@
       service.restart = "unless-stopped";
       service.volumes = [
         "/var/run/docker.sock:/var/run/docker.sock"
-        "portainer_data:/data"
+        "/var/lib/portainer:/data"
         "${portainerAdminPasswordFile}:/run/secrets/portainer-admin-password:ro"
       ];
       service.ports = [ "9000:9000" ];
