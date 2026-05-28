@@ -12,15 +12,20 @@ This repository contains a declarative NixOS configuration for a homelab setup u
 │   ├── base.nix              # Base system configuration
 │   ├── arion.nix             # Docker and Arion setup
 │   └── services/
-│       └── vaultwarden.nix   # Vaultwarden stack
+│       ├── vaultwarden.nix   # Vaultwarden + Cloudflared stack
+│       └── operations.nix    # Operations stack (Portainer, Dozzle)
 ├── secrets/
 │   ├── secrets.nix           # Public key definitions for agenix
 │   ├── vaultwarden.env.age   # Encrypted Vaultwarden environment
-│   └── cloudflared-vaultwarden.env.age  # Encrypted Cloudflare tunnel token
-└── arion/
-    └── vaultwarden/
-        ├── arion-compose.nix # Arion service definition
-        └── arion-pkgs.nix    # nixpkgs import for Arion
+│   ├── cloudflared-vaultwarden.env.age  # Encrypted Cloudflare tunnel token
+│   └── portainer-admin-password.age     # Encrypted Portainer admin password
+├── arion/
+│   ├── vaultwarden/
+│   │   ├── arion-compose.nix
+│   │   └── arion-pkgs.nix
+│   └── operations/
+│       ├── arion-compose.nix
+│       └── arion-pkgs.nix
 ```
 
 ## Prerequisites
@@ -47,55 +52,83 @@ ssh-keyscan <VM_IP_ADDRESS>
 ```
 Copy the entire output (should look like `ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAA...`).
 
-Replace the `homeserver` value in `secrets/secrets.nix` with this key:
+Replace the placeholder in `secrets/secrets.nix` with this key:
 ```nix
-homeserver = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAA...";
+nixos-host = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAA...";
 ```
 
-### 3. Encrypt the Secrets
+## Creating Secrets
 
-For each `.age` file in the `secrets/` directory, run:
+Each `*.age` file in `secrets/` must be created with agenix before the first build. The
+`secrets/secrets.nix` file defines which SSH keys are allowed to encrypt/decrypt.
+
 ```bash
-agenix -e secrets/vaultwarden.env.age
-agenix -e secrets/cloudflared-vaultwarden.env.age
-```
-
-This will open your `$EDITOR`. Fill in the contents:
-
-**vaultwarden.env**:
-```
-VAULTWARDEN_DOMAIN=your-domain.tld
+# Vaultwarden env file
+echo 'VAULTWARDEN_DOMAIN=your-domain.tld
 SIGNUPS_ALLOWED=false
 INVITATIONS_ALLOWED=false
-ADMIN_TOKEN=your-secret-token-here
+ADMIN_TOKEN=your-secret-token-here' | agenix -i <identity> -e secrets/vaultwarden.env.age
+
+# Cloudflared tunnel token
+echo 'TUNNEL_TOKEN=your-cloudflare-tunnel-token-here' | agenix -i <identity> -e secrets/cloudflared-vaultwarden.env.age
+
+# Portainer admin password (plaintext, used with --admin-password-file flag)
+echo -n 'your-password' | agenix -i <identity> -e secrets/portainer-admin-password.age
 ```
 
-**cloudflared-vaultwarden.env**:
-```
-TUNNEL_TOKEN=your-cloudflare-tunnel-token-here
-```
+The `<identity>` must be one of the SSH keys listed in `secrets/secrets.nix`:
+- Your user key: `~/.ssh/id_ed25519` (on your local machine)
+- The host key: `/etc/ssh/ssh_host_ed25519_key` (on the NixOS machine, needs `sudo`)
 
-Save and close the editor to encrypt the files.
-
-### 4. Apply the Configuration
-
-Clone this repository on the VM (or copy the files), then run:
+**Example on the NixOS machine (as root):**
 ```bash
+cd /path/to/nix-host/secrets
+echo -n 'admin' | sudo agenix -i /etc/ssh/ssh_host_ed25519_key -e portainer-admin-password.age
+```
+
+### Encryption rules
+
+| File | Identity (public key owner) |
+|---|---|
+| `secrets/vaultwarden.env.age` | user + host |
+| `secrets/cloudflared-vaultwarden.env.age` | user + host |
+| `secrets/portainer-admin-password.age` | user + host |
+
+## Applying the Configuration
+
+On the NixOS machine, clone the repo and apply:
+
+```bash
+git clone https://github.com/TiloHeidasch/nix-host.git && cd nix-host
 sudo nixos-rebuild switch --flake .#nix-host
+```
+
+To update after making changes:
+```bash
+cd /path/to/nix-host && git fetch origin && git reset --hard origin/main && sudo nixos-rebuild switch --flake .#nix-host
 ```
 
 This will:
 - Build the system configuration
 - Start Docker and Arion
-- Deploy the Vaultwarden stack via Arion
+- Deploy all stacks via Arion
 - Decrypt and mount the secrets at `/run/agenix/`
 
-### 5. Accessing Services
+## Accessing Services
 
 After successful deployment:
-- Vaultwarden should be accessible via your Cloudflare tunnel
-- The Arion service runs as a systemd service: `arion-vaultwarden`
-- Logs can be viewed with: `journalctl -u arion-vaultwarden -f`
+
+| Service | URL | Credentials |
+|---|---|---|
+| Portainer | `http://<host>:9000` | `admin` / see `portainer-admin-password.age` |
+| Dozzle | `http://<host>:8080` | none (view-only logs) |
+| Vaultwarden | via Cloudflare tunnel | configured in `vaultwarden.env.age` |
+
+The Arion services run as systemd services:
+```bash
+journalctl -u arion-vaultwarden -f
+journalctl -u arion-operations -f
+```
 
 ## Updating the Configuration
 
@@ -129,7 +162,11 @@ agenix -r
 
 ## Troubleshooting
 
-- If the Arion service fails to start, check the logs: `journalctl -u arion-vaultwarden -f`
+- If an Arion service fails to start, check its logs: `journalctl -u arion-vaultwarden -f` / `journalctl -u arion-operations -f`
 - Verify Docker is running: `docker info`
 - Check that secrets are decrypted: `ls -la /run/agenix/`
+- If Portainer keeps asking for initial setup, delete its data and restart:
+  ```bash
+  sudo rm -rf /var/lib/portainer && sudo systemctl restart arion-operations
+  ```
 - Ensure the VM has internet access to pull Docker images
