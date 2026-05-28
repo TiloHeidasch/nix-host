@@ -4,9 +4,17 @@ let
   portainerAdminPasswordFile = config.age.secrets.portainer-admin-password.path;
   portainerTheme = config.portainerSettings.theme;
 
-  portainerInit = pkgs.writeShellScript "portainer-init" ''
+  runScript = pkgs.writeShellScript "arion-operations-run" ''
     set -euo pipefail
 
+    # Remove existing containers to ensure fresh state
+    ${pkgs.docker}/bin/docker rm -f operations-portainer-1 operations-dozzle-1 2>/dev/null || true
+    ${pkgs.docker}/bin/docker volume rm operations_portainer_data 2>/dev/null || true
+
+    # Start containers via arion
+    ${pkgs.arion}/bin/arion --prebuilt-file ${arionProject} up -d
+
+    # Wait for Portainer to be ready
     ADMIN_PASSWORD=$(cat ${portainerAdminPasswordFile})
     BASE_URL="http://127.0.0.1:9000"
     MAX_RETRIES=30
@@ -18,11 +26,13 @@ let
       sleep 2
     done
 
+    # Login and get JWT
     JWT=$(curl -sf -X POST "$BASE_URL/api/auth" \
       -H "Content-Type: application/json" \
       -d "{\"username\":\"admin\",\"password\":\"$ADMIN_PASSWORD\"}" \
       | ${pkgs.jq}/bin/jq -r '.jwt')
 
+    # Create local Docker endpoint if not exists
     ENDPOINT_COUNT=$(curl -sf "$BASE_URL/api/endpoints" \
       -H "Authorization: Bearer $JWT" \
       | ${pkgs.jq}/bin/jq 'length')
@@ -39,12 +49,11 @@ let
         }' > /dev/null
     fi
 
-    # Get admin user ID
+    # Set theme for admin user via user-level API
     ADMIN_ID=$(curl -sf "$BASE_URL/api/users" \
       -H "Authorization: Bearer $JWT" \
       | ${pkgs.jq}/bin/jq '.[] | select(.Username == "admin") | .Id')
 
-    # Set theme for admin user (user-level setting)
     ${pkgs.jq}/bin/jq -n \
       --arg theme "${portainerTheme}" \
       '{ "UserTheme": $theme }' \
@@ -52,6 +61,20 @@ let
         -H "Authorization: Bearer $JWT" \
         -H "Content-Type: application/json" \
         -d @- > /dev/null
+
+    # Apply global settings
+    ${pkgs.jq}/bin/jq -n '{
+      "LogoURL": "",
+      "DisplayDonationHeader": false,
+      "DisplayExternalContributors": false
+    }' | curl -sf -X PUT "$BASE_URL/api/settings" \
+      -H "Authorization: Bearer $JWT" \
+      -H "Content-Type: application/json" \
+      -d @- > /dev/null
+  '';
+
+  stopScript = pkgs.writeShellScript "arion-operations-stop" ''
+    ${pkgs.arion}/bin/arion --prebuilt-file ${arionProject} down
   '';
 
   arionProject = pkgs.arion.build {
@@ -82,27 +105,13 @@ in
       wants = [ "virtualisation.docker.service" ];
       wantedBy = [ "multi-user.target" ];
       enable = true;
-      path = [ pkgs.docker ];
+      path = with pkgs; [ curl jq docker arion ];
       serviceConfig = {
         Type = "oneshot";
         RemainAfterExit = true;
-        ExecStart = "${pkgs.arion}/bin/arion --prebuilt-file ${arionProject} up -d";
-        ExecStop = "${pkgs.arion}/bin/arion --prebuilt-file ${arionProject} down";
+        ExecStart = runScript;
+        ExecStop = stopScript;
         WorkingDirectory = "/tmp";
-      };
-    };
-
-    systemd.services.portainer-init = {
-      description = "Initialize Portainer (create endpoint, apply settings)";
-      after = [ "arion-operations.service" ];
-      wants = [ "arion-operations.service" ];
-      wantedBy = [ "multi-user.target" ];
-      enable = true;
-      path = with pkgs; [ curl jq ];
-      serviceConfig = {
-        Type = "oneshot";
-        RemainAfterExit = true;
-        ExecStart = portainerInit;
       };
     };
 
