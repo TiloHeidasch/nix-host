@@ -24,5 +24,5 @@
 
   networking.hostName = "nix-host";
 
-  portainerSettings.theme = "auto";
+  portainerSettings.theme = "light";
 }
