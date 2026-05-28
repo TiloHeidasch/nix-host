@@ -39,19 +39,19 @@ let
         }' > /dev/null
     fi
 
-    SETTINGS=$(${pkgs.jq}/bin/jq -n \
-      --arg theme "${portainerTheme}" \
-      '{
-        "LogoURL": "",
-        "DisplayDonationHeader": false,
-        "DisplayExternalContributors": false,
-        "Theme": $theme
-      }')
-
-    curl -sf -X PUT "$BASE_URL/api/settings" \
+    # Get admin user ID
+    ADMIN_ID=$(curl -sf "$BASE_URL/api/users" \
       -H "Authorization: Bearer $JWT" \
-      -H "Content-Type: application/json" \
-      -d "$SETTINGS" > /dev/null
+      | ${pkgs.jq}/bin/jq '.[] | select(.Username == "admin") | .Id')
+
+    # Set theme for admin user (user-level setting)
+    ${pkgs.jq}/bin/jq -n \
+      --arg theme "${portainerTheme}" \
+      '{ "UserTheme": $theme }' \
+      | curl -sf -X PUT "$BASE_URL/api/users/$ADMIN_ID" \
+        -H "Authorization: Bearer $JWT" \
+        -H "Content-Type: application/json" \
+        -d @- > /dev/null
   '';
 
   arionProject = pkgs.arion.build {
