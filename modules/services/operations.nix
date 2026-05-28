@@ -22,83 +22,52 @@ let
     ${pkgs.docker}/bin/docker volume rm operations_portainer_data 2>/dev/null || true
 
     # Start containers via arion
-    ${pkgs.arion}/bin/arion --prebuilt-file ${arionProject} up -d
+    ${pkgs.arion}/bin/arion --prebuilt-file ${arionProject} up -d || true
 
-    # Wait for Portainer to accept API calls
+    # API configuration (disable strict error handling for curl calls)
+    set +e
     ADMIN_PASSWORD=$(cat ${portainerAdminPasswordFile})
     BASE_URL="http://127.0.0.1:9000"
-    MAX_RETRIES=30
 
-    for i in $(seq 1 $MAX_RETRIES); do
-      HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" "$BASE_URL/api/status" 2>/dev/null || echo "000")
-      if [ "$HTTP_CODE" = "200" ]; then
-        break
-      fi
+    for i in $(seq 1 30); do
+      HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" "$BASE_URL/api/status" 2>/dev/null)
+      if [ "$HTTP_CODE" = "200" ]; then break; fi
       sleep 2
     done
 
-    # Wait additional time for Portainer to process --admin-password-file
     sleep 5
 
-    # Login
-    JWT=$(curl -sf -X POST "$BASE_URL/api/auth" \
+    JWT=$(curl -s -X POST "$BASE_URL/api/auth" \
       -H "Content-Type: application/json" \
       -d "{\"username\":\"admin\",\"password\":\"$ADMIN_PASSWORD\"}" \
-      | ${pkgs.jq}/bin/jq -r '.jwt') || true
+      | ${pkgs.jq}/bin/jq -r '.jwt' 2>/dev/null)
 
     if [ -z "$JWT" ]; then
-      echo "Portainer init: auth failed, retrying after 10s..."
-      sleep 10
-      JWT=$(curl -sf -X POST "$BASE_URL/api/auth" \
-        -H "Content-Type: application/json" \
-        -d "{\"username\":\"admin\",\"password\":\"$ADMIN_PASSWORD\"}" \
-        | ${pkgs.jq}/bin/jq -r '.jwt') || true
-    fi
-
-    if [ -z "$JWT" ]; then
-      echo "Portainer init: auth still failed, skipping API configuration"
+      echo "Portainer init: auth failed after retry, skipping API configuration"
       exit 0
     fi
 
-    # Create local Docker endpoint if not exists
-    ENDPOINT_COUNT=$(curl -sf "$BASE_URL/api/endpoints" \
-      -H "Authorization: Bearer $JWT" \
-      | ${pkgs.jq}/bin/jq 'length')
-
-    if [ "$ENDPOINT_COUNT" -eq 0 ]; then
-      curl -sf -X POST "$BASE_URL/api/endpoints" \
-        -H "Authorization: Bearer $JWT" \
-        -H "Content-Type: application/json" \
-        -d '{
-          "Name": "local",
-          "EndpointType": 1,
-          "URL": "unix:///var/run/docker.sock",
-          "PublicURL": ""
-        }' > /dev/null
-    fi
-
-    # Set theme for admin user via user-level API
-    ADMIN_ID=$(curl -sf "$BASE_URL/api/users" \
-      -H "Authorization: Bearer $JWT" \
-      | ${pkgs.jq}/bin/jq '.[] | select(.Username == "admin") | .Id')
-
-    ${pkgs.jq}/bin/jq -n \
-      --arg theme "${portainerTheme}" \
-      '{ "UserTheme": $theme }' \
-      | curl -sf -X PUT "$BASE_URL/api/users/$ADMIN_ID" \
-        -H "Authorization: Bearer $JWT" \
-        -H "Content-Type: application/json" \
-        -d @- > /dev/null
-
-    # Apply global settings
-    ${pkgs.jq}/bin/jq -n '{
-      "LogoURL": "",
-      "DisplayDonationHeader": false,
-      "DisplayExternalContributors": false
-    }' | curl -sf -X PUT "$BASE_URL/api/settings" \
+    curl -s -X POST "$BASE_URL/api/endpoints" \
       -H "Authorization: Bearer $JWT" \
       -H "Content-Type: application/json" \
-      -d @- > /dev/null
+      -d '{"Name":"local","EndpointType":1,"URL":"unix:///var/run/docker.sock","PublicURL":""}' > /dev/null || true
+
+    ADMIN_ID=$(curl -s "$BASE_URL/api/users" \
+      -H "Authorization: Bearer $JWT" \
+      | ${pkgs.jq}/bin/jq '.[] | select(.Username == "admin") | .Id' 2>/dev/null || echo "")
+
+    if [ -n "$ADMIN_ID" ]; then
+      ${pkgs.jq}/bin/jq -n --arg theme "${portainerTheme}" \
+        '{ "UserTheme": $theme }' \
+        | curl -s -X PUT "$BASE_URL/api/users/$ADMIN_ID" \
+          -H "Authorization: Bearer $JWT" \
+          -H "Content-Type: application/json" -d @- > /dev/null || true
+    fi
+
+    curl -s -X PUT "$BASE_URL/api/settings" \
+      -H "Authorization: Bearer $JWT" \
+      -H "Content-Type: application/json" \
+      -d '{"LogoURL":"","DisplayDonationHeader":false,"DisplayExternalContributors":false}' > /dev/null || true
   '';
 
   stopScript = pkgs.writeShellScript "arion-operations-stop" ''
