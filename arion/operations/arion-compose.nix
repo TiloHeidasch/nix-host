@@ -12,7 +12,7 @@
         "${portainerAdminPasswordFile}:/run/secrets/portainer-admin-password:ro"
       ];
       service.ports = [ "9000:9000" ];
-      service.command = [ "--admin-password-file", "/run/secrets/portainer-admin-password" ];
+      service.command = [ "--admin-password-file" "/run/secrets/portainer-admin-password" ];
     };
 
     dozzle = {
