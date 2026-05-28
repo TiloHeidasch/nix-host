@@ -4,6 +4,16 @@ let
   portainerAdminPasswordFile = config.age.secrets.portainer-admin-password.path;
   portainerTheme = config.portainerSettings.theme;
 
+  arionProject = pkgs.arion.build {
+    modules = [
+      ({ ... }: {
+        _module.args = { inherit portainerAdminPasswordFile; };
+      })
+      ./../../arion/operations/arion-compose.nix
+    ];
+    pkgs = import ./../../arion/operations/arion-pkgs.nix { inherit pkgs; };
+  };
+
   runScript = pkgs.writeShellScript "arion-operations-run" ''
     set -euo pipefail
 
@@ -14,23 +24,41 @@ let
     # Start containers via arion
     ${pkgs.arion}/bin/arion --prebuilt-file ${arionProject} up -d
 
-    # Wait for Portainer to be ready
+    # Wait for Portainer to accept API calls
     ADMIN_PASSWORD=$(cat ${portainerAdminPasswordFile})
     BASE_URL="http://127.0.0.1:9000"
     MAX_RETRIES=30
 
     for i in $(seq 1 $MAX_RETRIES); do
-      if curl -sf "$BASE_URL/api/status" > /dev/null 2>&1; then
+      HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" "$BASE_URL/api/status" 2>/dev/null || echo "000")
+      if [ "$HTTP_CODE" = "200" ]; then
         break
       fi
       sleep 2
     done
 
-    # Login and get JWT
+    # Wait additional time for Portainer to process --admin-password-file
+    sleep 5
+
+    # Login
     JWT=$(curl -sf -X POST "$BASE_URL/api/auth" \
       -H "Content-Type: application/json" \
       -d "{\"username\":\"admin\",\"password\":\"$ADMIN_PASSWORD\"}" \
-      | ${pkgs.jq}/bin/jq -r '.jwt')
+      | ${pkgs.jq}/bin/jq -r '.jwt') || true
+
+    if [ -z "$JWT" ]; then
+      echo "Portainer init: auth failed, retrying after 10s..."
+      sleep 10
+      JWT=$(curl -sf -X POST "$BASE_URL/api/auth" \
+        -H "Content-Type: application/json" \
+        -d "{\"username\":\"admin\",\"password\":\"$ADMIN_PASSWORD\"}" \
+        | ${pkgs.jq}/bin/jq -r '.jwt') || true
+    fi
+
+    if [ -z "$JWT" ]; then
+      echo "Portainer init: auth still failed, skipping API configuration"
+      exit 0
+    fi
 
     # Create local Docker endpoint if not exists
     ENDPOINT_COUNT=$(curl -sf "$BASE_URL/api/endpoints" \
@@ -76,16 +104,6 @@ let
   stopScript = pkgs.writeShellScript "arion-operations-stop" ''
     ${pkgs.arion}/bin/arion --prebuilt-file ${arionProject} down
   '';
-
-  arionProject = pkgs.arion.build {
-    modules = [
-      ({ ... }: {
-        _module.args = { inherit portainerAdminPasswordFile; };
-      })
-      ./../../arion/operations/arion-compose.nix
-    ];
-    pkgs = import ./../../arion/operations/arion-pkgs.nix { inherit pkgs; };
-  };
 in
 {
   options.portainerSettings = {
