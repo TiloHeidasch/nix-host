@@ -9,9 +9,10 @@
       service.volumes = [
         "/var/run/docker.sock:/var/run/docker.sock"
         "/var/lib/portainer:/data"
+        "${portainerAdminPasswordFile}:/run/secrets/portainer-admin-password:ro"
       ];
       service.ports = [ "9000:9000" ];
-      service.env_file = [ portainerAdminPasswordFile ];
+      service.command = [ "--admin-password-file", "/run/secrets/portainer-admin-password" ];
     };
 
     dozzle = {
